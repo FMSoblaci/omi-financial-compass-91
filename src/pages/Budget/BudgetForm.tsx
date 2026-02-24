@@ -523,7 +523,7 @@ const BudgetForm = ({ budgetId, onSaved, onCancel }: BudgetFormProps) => {
                 type="number"
                 value={formData.year}
                 onChange={(e) => setFormData({ ...formData, year: parseInt(e.target.value) })}
-                disabled={isEditing}
+                disabled={isEditing && existingBudget?.status !== 'rejected'}
               />
             </div>
 
@@ -532,7 +532,7 @@ const BudgetForm = ({ budgetId, onSaved, onCancel }: BudgetFormProps) => {
               <Select
                 value={formData.location_id}
                 onValueChange={(value) => setFormData({ ...formData, location_id: value })}
-                disabled={isEditing || (user?.role !== 'admin' && user?.role !== 'prowincjal')}
+                disabled={(isEditing && existingBudget?.status !== 'rejected') || (user?.role !== 'admin' && user?.role !== 'prowincjal')}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Wybierz lokalizację" />

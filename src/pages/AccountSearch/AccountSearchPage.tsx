@@ -466,9 +466,10 @@ const AccountSearchPage = () => {
     const sortedTransactions = [...transactions].sort((a, b) => 
       new Date(a.date).getTime() - new Date(b.date).getTime()
     );
+    const relatedSet = new Set(relatedAccountIds);
     sortedTransactions.forEach(t => {
-      const isDebit = t.debit_account_id === selectedAccount.id;
-      const isCredit = t.credit_account_id === selectedAccount.id;
+      const isDebit = relatedSet.has(t.debit_account_id);
+      const isCredit = relatedSet.has(t.credit_account_id);
       const debitAmount = isDebit ? t.debit_amount ?? t.amount ?? 0 : 0;
       const creditAmount = isCredit ? t.credit_amount ?? t.amount ?? 0 : 0;
       runningBalance += debitAmount - creditAmount;

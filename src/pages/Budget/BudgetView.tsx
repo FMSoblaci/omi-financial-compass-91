@@ -11,6 +11,9 @@ import { sendBudgetNotification } from '@/utils/budgetNotifications';
 import BudgetItemsTable from './BudgetItemsTable';
 import BudgetRealizationBar from './BudgetRealizationBar';
 import { useState } from 'react';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
 
 interface BudgetViewProps {
   budgetId: string;
@@ -22,6 +25,8 @@ const BudgetView = ({ budgetId, onEdit, onBack }: BudgetViewProps) => {
   const { user } = useAuth();
   const [isApproving, setIsApproving] = useState(false);
   const [isRejecting, setIsRejecting] = useState(false);
+  const [showRejectDialog, setShowRejectDialog] = useState(false);
+  const [rejectionReason, setRejectionReason] = useState('');
 
   const { data: budget, isLoading, refetch } = useQuery({
     queryKey: ['budget-view', budgetId],
@@ -92,9 +97,12 @@ const BudgetView = ({ budgetId, onEdit, onBack }: BudgetViewProps) => {
   };
 
   const handleReject = async () => {
-    const reason = prompt('Podaj powód odrzucenia:');
-    if (!reason) return;
+    if (!rejectionReason.trim()) {
+      toast.error('Podaj powód odrzucenia');
+      return;
+    }
 
+    const reason = rejectionReason.trim();
     setIsRejecting(true);
     try {
       const { error } = await supabase
@@ -135,6 +143,8 @@ const BudgetView = ({ budgetId, onEdit, onBack }: BudgetViewProps) => {
       }
 
       toast.success('Budżet odrzucony');
+      setShowRejectDialog(false);
+      setRejectionReason('');
       refetch();
     } finally {
       setIsRejecting(false);
@@ -282,7 +292,7 @@ const BudgetView = ({ budgetId, onEdit, onBack }: BudgetViewProps) => {
           )}
 
           <div className="flex gap-2">
-            {budget.status === 'draft' && (
+            {(budget.status === 'draft' || budget.status === 'rejected') && (
               <Button onClick={() => onEdit(budgetId)} variant="outline">
                 <Edit className="mr-2 h-4 w-4" />
                 Edytuj
@@ -295,9 +305,8 @@ const BudgetView = ({ budgetId, onEdit, onBack }: BudgetViewProps) => {
                   {!isApproving && <Check className="mr-2 h-4 w-4" />}
                   Zatwierdź
                 </Button>
-                <Button onClick={handleReject} variant="destructive" disabled={isApproving || isRejecting}>
-                  {isRejecting && <Spinner size="sm" className="mr-2" />}
-                  {!isRejecting && <X className="mr-2 h-4 w-4" />}
+                <Button onClick={() => setShowRejectDialog(true)} variant="destructive" disabled={isApproving || isRejecting}>
+                  <X className="mr-2 h-4 w-4" />
                   Odrzuć
                 </Button>
               </>
@@ -321,6 +330,44 @@ const BudgetView = ({ budgetId, onEdit, onBack }: BudgetViewProps) => {
         onUpdateExpenses={() => {}}
         readonly
       />
+
+      {/* Dialog odrzucenia budżetu */}
+      <Dialog open={showRejectDialog} onOpenChange={setShowRejectDialog}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Odrzucenie budżetu</DialogTitle>
+            <DialogDescription>
+              Podaj powód odrzucenia budżetu na rok {budget.year} dla lokalizacji {(budget.locations as any)?.name}. 
+              Ekonom otrzyma powiadomienie i będzie mógł poprawić budżet.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Label htmlFor="rejection-reason">Powód odrzucenia / uwagi do poprawy</Label>
+            <Textarea
+              id="rejection-reason"
+              placeholder="Opisz co wymaga poprawy..."
+              value={rejectionReason}
+              onChange={(e) => setRejectionReason(e.target.value)}
+              rows={5}
+              className="resize-none"
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowRejectDialog(false)} disabled={isRejecting}>
+              Anuluj
+            </Button>
+            <Button 
+              variant="destructive" 
+              onClick={handleReject} 
+              disabled={isRejecting || !rejectionReason.trim()}
+            >
+              {isRejecting && <Spinner size="sm" className="mr-2" />}
+              {!isRejecting && <X className="mr-2 h-4 w-4" />}
+              Odrzuć budżet
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
