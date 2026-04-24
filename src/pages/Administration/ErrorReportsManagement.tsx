@@ -17,6 +17,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { useEffect, useState as useComponentState } from "react";
 
 import { ScrollableTable } from "@/components/ui/ScrollableTable";
+import { Markdown } from "@/components/ui/markdown";
 
 const ResponseAttachments = ({ paths }: { paths: string[] }) => {
   const [urls, setUrls] = useComponentState<string[]>([]);
@@ -626,7 +627,7 @@ const ErrorReportsManagement = () => {
                         <span>{format(new Date(selectedReport.created_at), "dd.MM.yyyy HH:mm", { locale: pl })}</span>
                       </div>
                       <h3 className="font-semibold text-base">{selectedReport.title}</h3>
-                      <p className="text-sm whitespace-pre-wrap">{selectedReport.description}</p>
+                      <Markdown>{selectedReport.description}</Markdown>
                       {screenshotUrl && (
                         <img src={screenshotUrl} alt="Screenshot" className="max-w-full rounded border" />
                       )}
@@ -655,7 +656,7 @@ const ErrorReportsManagement = () => {
                           <span className="font-medium">{response.profiles?.name || "Nieznany użytkownik"}</span>
                           <span>{format(new Date(response.created_at), "dd.MM.yyyy HH:mm", { locale: pl })}</span>
                         </div>
-                        <p className="text-sm whitespace-pre-wrap">{response.message}</p>
+                        <Markdown>{response.message}</Markdown>
                         {response.attachments && response.attachments.length > 0 && (
                           <ResponseAttachments paths={response.attachments} />
                         )}
