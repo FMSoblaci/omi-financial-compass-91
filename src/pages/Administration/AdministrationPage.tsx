@@ -12,7 +12,6 @@ import AccountRestrictionsManagement from './AccountRestrictionsManagement';
 import DatabaseManagement from './DatabaseManagement';
 import ErrorReportsManagement from './ErrorReportsManagement';
 import LoginEventsManagement from './LoginEventsManagement';
-import ProjectFeaturesManagement from './ProjectFeaturesManagement';
 import RemindersManagement from './RemindersManagement';
 import SecuritySettingsManagement from './SecuritySettingsManagement';
 import ProvincialFeeManagement from './ProvincialFeeManagement';
@@ -85,9 +84,6 @@ const AdministrationPage = () => {
             <TabsTrigger value="error-reports" className="flex-shrink-0">Zgłoszenia błędów</TabsTrigger>
           )}
           {(user.role === 'admin' || user.role === 'prowincjal') && (
-            <TabsTrigger value="project-features" className="flex-shrink-0">Postęp projektu</TabsTrigger>
-          )}
-          {(user.role === 'admin' || user.role === 'prowincjal') && (
             <TabsTrigger value="provincial-fee" className="flex-shrink-0">Procent prowincjalny</TabsTrigger>
           )}
         </TabsList>
@@ -150,12 +146,6 @@ const AdministrationPage = () => {
           {(user.role === 'admin' || user.role === 'prowincjal') && activeTab === 'error-reports' && (
             <TabsContent value="error-reports" className="space-y-4">
               <ErrorReportsManagement />
-            </TabsContent>
-          )}
-
-          {(user.role === 'admin' || user.role === 'prowincjal') && activeTab === 'project-features' && (
-            <TabsContent value="project-features" className="space-y-4">
-              <ProjectFeaturesManagement />
             </TabsContent>
           )}
 
