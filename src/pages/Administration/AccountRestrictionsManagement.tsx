@@ -178,20 +178,20 @@ const AccountRestrictionsManagement = () => {
             </p>
           </div>
         </CardHeader>
-        <CardContent>
-          <div className="overflow-auto max-h-[calc(100vh-280px)] relative">
+          <CardContent>
+          <div className="[&>div]:max-h-[calc(100vh-280px)] [&>div]:overflow-auto">
             <Table>
-              <TableHeader className="sticky top-0 z-20 bg-background shadow-[0_1px_0_0_hsl(var(--border))]">
+              <TableHeader className="bg-background shadow-[0_1px_0_0_hsl(var(--border))]">
                 <TableRow className="bg-background hover:bg-background">
-                  <TableHead className="bg-background">Numer konta (bez identyfikatora)</TableHead>
+                  <TableHead className="sticky top-0 z-20 bg-background">Numer konta (bez identyfikatora)</TableHead>
                   {Object.entries(LOCATION_CATEGORIES).map(([prefix, name]) => (
-                    <TableHead key={prefix} className="text-center min-w-[150px] bg-background">
+                    <TableHead key={prefix} className="sticky top-0 z-20 min-w-[150px] bg-background text-center">
                       {name}
                       <br />
                       <span className="text-xs text-muted-foreground">({prefix}-*)</span>
                     </TableHead>
                   ))}
-                  <TableHead className="text-center min-w-[150px] bg-background">
+                  <TableHead className="sticky top-0 z-20 min-w-[150px] bg-background text-center">
                     Czy konto analityczne?
                     <br />
                   </TableHead>
