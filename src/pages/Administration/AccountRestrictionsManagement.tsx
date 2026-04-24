@@ -40,28 +40,40 @@ const AccountRestrictionsManagement = () => {
   const { data: accounts, isLoading: accountsLoading } = useQuery({
     queryKey: ["accounts-for-restrictions"],
     queryFn: async () => {
-      let allAccounts: Account[] = [];
-      let page = 0;
-      const pageSize = 20;
+      // Pobieramy tylko kolumnę `number` — komponent używa wyłącznie prefiksu
+      // (część przed pierwszym myślnikiem) do zbudowania listy unikalnych prefiksów.
+      // pageSize=1000 to maksymalny limit Supabase per zapytanie — przy ~6000 kont
+      // potrzebujemy tylko ~6 zapytań zamiast ~300.
+      let allAccounts: { number: string }[] = [];
+      const pageSize = 1000;
+      let offset = 0;
+      let hasMore = true;
+      let iterations = 0;
+      const maxIterations = 50; // bezpiecznik na 50 000 kont
 
-      while (true) {
+      while (hasMore && iterations < maxIterations) {
+        iterations++;
         const { data, error } = await supabase
           .from("accounts")
-          .select("id, number, name, type")
+          .select("number")
           .order("number")
-          .range(page * pageSize, (page + 1) * pageSize - 1);
+          .range(offset, offset + pageSize - 1);
 
         if (error) throw error;
-        if (!data || data.length === 0) break;
-
-        allAccounts = [...allAccounts, ...data];
-        if (data.length < pageSize) break; // Last page
-        page++;
+        const fetched = data?.length ?? 0;
+        if (data && fetched > 0) {
+          allAccounts = [...allAccounts, ...data];
+          offset += fetched;
+          hasMore = fetched === pageSize;
+        } else {
+          hasMore = false;
+        }
       }
 
-      console.log("Total accounts fetched:", allAccounts.length);
+      console.log(`[AccountRestrictions] Pobrano ${allAccounts.length} kont w ${iterations} zapytaniu/zapytaniach`);
       return allAccounts as Account[];
     },
+    staleTime: 5 * 60 * 1000, // 5 min cache — tabela kont rzadko się zmienia
   });
 
   // Get unique account number prefixes (only first part before first hyphen)
