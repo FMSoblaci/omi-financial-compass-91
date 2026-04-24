@@ -147,8 +147,9 @@ export const ExportToExcelFull: React.FC<ExportToExcelFullProps> = ({ report, lo
       const expenseMap = new Map<string, number>();
       const financialStatusMap = new Map<string, { debits: number; credits: number }>();
       const liabilitiesMap = new Map<string, { receivables: number; liabilities: number }>();
-      let intentions210Received = 0;
-      let intentions210CelebratedGiven = 0;
+      // Konto 210 jest pasywne: Ma = przyjęte, Wn = odprawione i oddane
+      let intentions210Received = 0; // Ma
+      let intentions210CelebratedGiven = 0; // Wn
       const provinceTurnovers = new Map<string, number>();
 
       transactions?.forEach((tx) => {
@@ -182,7 +183,7 @@ export const ExportToExcelFull: React.FC<ExportToExcelFullProps> = ({ report, lo
               // 201 credit side also tracked for province
             }
           }
-          if (prefix === "210") intentions210CelebratedGiven += amountCredit;
+          if (prefix === "210") intentions210Received += amountCredit;
         }
 
         // Debit side
@@ -208,7 +209,7 @@ export const ExportToExcelFull: React.FC<ExportToExcelFullProps> = ({ report, lo
               }
             }
           }
-          if (prefix === "210") intentions210Received += amountDebit;
+          if (prefix === "210") intentions210CelebratedGiven += amountDebit;
         }
       });
 
@@ -312,7 +313,8 @@ export const ExportToExcelFull: React.FC<ExportToExcelFullProps> = ({ report, lo
       ]);
       sheet1Data.push(["", "Początek miesiąca", "Odprawione", "Przyjęte", "Stan końcowy"]);
 
-      const intentionsOpening = openingBalances.get("210") || 0;
+      // Konto 210 pasywne – odwracamy znak salda otwarcia (openingBalances trzyma Wn − Ma)
+      const intentionsOpening = -(openingBalances.get("210") || 0);
       const intentionsClosing = intentionsOpening + intentions210Received - intentions210CelebratedGiven;
       sheet1Data.push([
         "1. Intencje",
