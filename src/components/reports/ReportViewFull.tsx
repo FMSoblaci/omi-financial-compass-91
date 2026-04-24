@@ -141,9 +141,11 @@ export const ReportViewFull: React.FC<ReportViewFullProps> = ({
         liabilities: number;  // Zobowiązania (Ma)
       }>();
 
-      // Intentions data (account 210)
-      let intentions210Received = 0; // Wn - przyjęte
-      let intentions210CelebratedGiven = 0; // Ma - odprawione i oddane
+      // Intentions data (account 210) – konto pasywne
+      // Strona Ma 210 = przyjęcie intencji (powstanie zobowiązania)
+      // Strona Wn 210 = odprawienie/oddanie intencji (zmniejszenie zobowiązania)
+      let intentions210Received = 0; // Ma - przyjęte
+      let intentions210CelebratedGiven = 0; // Wn - odprawione i oddane
 
       // Helper do przeliczania kwot walutowych na PLN
       const getAmountInPLN = (amount: number, currency?: string, exchangeRate?: number): number => {
@@ -191,9 +193,9 @@ export const ReportViewFull: React.FC<ReportViewFullProps> = ({
             liabilitiesData.set(prefix, existing);
           }
 
-          // Intentions 210 (Ma = odprawione i oddane)
+          // Intentions 210 (Ma = przyjęte – konto pasywne)
           if (prefix === '210') {
-            intentions210CelebratedGiven += amount;
+            intentions210Received += amount;
           }
         }
 
@@ -233,9 +235,9 @@ export const ReportViewFull: React.FC<ReportViewFullProps> = ({
             liabilitiesData.set(prefix, existing);
           }
 
-          // Intentions 210 (Wn = przyjęte)
+          // Intentions 210 (Wn = odprawione i oddane – konto pasywne)
           if (prefix === '210') {
-            intentions210Received += amount;
+            intentions210CelebratedGiven += amount;
           }
         }
       });
@@ -313,7 +315,9 @@ export const ReportViewFull: React.FC<ReportViewFullProps> = ({
   });
 
   // Calculate intentions opening balance from previous transactions
-  const intentionsOpeningBalance = openingBalances?.get('210') || 0;
+  // Konto 210 jest kontem pasywnym – saldo otwarcia liczone jako (Ma − Wn).
+  // openingBalances przechowuje (Wn − Ma), więc dla 210 odwracamy znak.
+  const intentionsOpeningBalance = -(openingBalances?.get('210') || 0);
 
   // Build intentions table data
   const intentionsData = {
