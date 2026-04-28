@@ -49,24 +49,58 @@ Deno.serve(async (req) => {
 
     console.log('Starting database export...');
 
-    // List of tables to export in dependency order
+    // Pełna lista tabel w kolejności zależności (rodzice przed dziećmi).
+ // Tabele bez FK są dodane na końcu - kolejność dla nich nie ma znaczenia.
     const tablesToExport = [
+      // Słowniki/podstawowe
       'locations',
-      'location_settings', 
+      'location_settings',
       'accounts',
       'location_accounts',
-      'profiles', // profiles reference locations
-      'user_settings', 
-      'documents', // documents reference locations and users
-      'transactions', // transactions reference documents and accounts
-      'reports', // reports reference locations and users
-      'report_details', // report_details reference reports
-      'report_account_details', // szczegółowa rozpisja kont z kwotami
+      'profiles',
+      'user_locations',
+      'user_settings',
+      'analytical_accounts',
+      // Dokumenty i transakcje
+      'documents',
+      'transactions',
+      // Raporty
+      'reports',
+      'report_details',
+      'report_account_details',
       'report_sections',
-      'report_entries', // report_entries reference reports
+      'report_entries',
+      // Mapowania i ograniczenia
       'account_section_mappings',
       'account_category_restrictions',
-      'notifications'
+      // Budżety
+      'budget_categories',
+      'budget_category_mappings',
+      'budget_plans',
+      'budget_items',
+      // Opłaty prowincjalne
+      'provincial_fee_accounts',
+      'provincial_fee_settings',
+      // Kalendarz, notatki, baza wiedzy
+      'calendar_events',
+      'admin_notes',
+      'knowledge_documents',
+      // Powiadomienia, logi, błędy
+      'notifications',
+      'reminder_logs',
+      'error_reports',
+      'error_report_responses',
+      'user_login_events',
+      'failed_logins',
+      // Ustawienia aplikacji i features
+      'app_settings',
+      'project_features',
+      // Bezpieczeństwo / sesje
+      'trusted_devices',
+      'verification_codes',
+      'password_reset_tokens',
+      // Kursy walut
+      'exchange_rate_history',
     ];
 
     const exportData: { 
@@ -89,27 +123,45 @@ Deno.serve(async (req) => {
 
     let totalRecords = 0;
 
-    // Export each table
+    // Export each table - z paginacją (limit Supabase 1000 wierszy/zapytanie)
+    const PAGE_SIZE = 1000;
     for (const tableName of tablesToExport) {
       try {
         console.log(`Exporting table: ${tableName}`);
-        
-        const { data, error } = await supabase
-          .from(tableName)
-          .select('*');
+        const allRows: any[] = [];
+        let from = 0;
+        // Pobieraj strony aż do wyczerpania danych
+        // eslint-disable-next-line no-constant-condition
+        while (true) {
+          const { data, error } = await supabase
+            .from(tableName)
+            .select('*')
+            .range(from, from + PAGE_SIZE - 1);
 
-        if (error) {
-          console.error(`Error exporting ${tableName}:`, error);
-          continue;
+          if (error) {
+            console.error(`Error exporting ${tableName} (page from ${from}):`, error);
+            break;
+          }
+          if (!data || data.length === 0) break;
+          allRows.push(...data);
+          if (data.length < PAGE_SIZE) break;
+          from += PAGE_SIZE;
         }
 
-        if (data && data.length > 0) {
+        if (allRows.length > 0) {
           exportData.tables.push({
             table_name: tableName,
-            data: data
+            data: allRows
           });
-          totalRecords += data.length;
-          console.log(`Exported ${data.length} records from ${tableName}`);
+          totalRecords += allRows.length;
+          console.log(`Exported ${allRows.length} records from ${tableName}`);
+        } else {
+          // Zapisz pustą tabelę żeby było wiadomo że została sprawdzona
+          exportData.tables.push({
+            table_name: tableName,
+            data: []
+          });
+          console.log(`Table ${tableName} is empty`);
         }
       } catch (tableError) {
         console.error(`Failed to export table ${tableName}:`, tableError);
