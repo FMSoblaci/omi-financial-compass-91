@@ -56,23 +56,47 @@ Deno.serve(async (req) => {
     console.log('Starting database import...');
     console.log(`Backup from: ${backupData.timestamp}, Tables: ${backupData.metadata?.totalTables || 'unknown'}`);
 
-    // Order of tables for import (considering dependencies)
+    // Pełna kolejność importu (rodzice przed dziećmi).
+    // Musi pokrywać się z export-database/index.ts.
     const importOrder = [
       'locations',
-      'location_settings', 
+      'location_settings',
       'accounts',
       'location_accounts',
       'profiles',
+      'user_locations',
       'user_settings',
+      'analytical_accounts',
       'documents',
       'transactions',
       'reports',
       'report_details',
+      'report_account_details',
       'report_sections',
       'report_entries',
       'account_section_mappings',
       'account_category_restrictions',
-      'notifications'
+      'budget_categories',
+      'budget_category_mappings',
+      'budget_plans',
+      'budget_items',
+      'provincial_fee_accounts',
+      'provincial_fee_settings',
+      'calendar_events',
+      'admin_notes',
+      'knowledge_documents',
+      'notifications',
+      'reminder_logs',
+      'error_reports',
+      'error_report_responses',
+      'user_login_events',
+      'failed_logins',
+      'app_settings',
+      'project_features',
+      'trusted_devices',
+      'verification_codes',
+      'password_reset_tokens',
+      'exchange_rate_history',
     ];
 
     let importedTables = 0;
