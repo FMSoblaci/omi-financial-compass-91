@@ -192,9 +192,6 @@ const DocumentsPage = () => {
     setIsDialogOpen(true);
   };
   const handleDocumentDuplicate = async (documentId: string) => {
-    if (!confirm('Czy na pewno chcesz skopiować ten dokument? Zostanie utworzony nowy dokument z dzisiejszą datą i nowym numerem. Wszystkie pola będą edytowalne.')) {
-      return;
-    }
     try {
       const { data, error } = await supabase.rpc('duplicate_document', {
         p_document_id: documentId,
