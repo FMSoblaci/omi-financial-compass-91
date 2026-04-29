@@ -191,6 +191,46 @@ const DocumentsPage = () => {
     setSelectedDocument(document);
     setIsDialogOpen(true);
   };
+  const handleDocumentDuplicate = async (documentId: string) => {
+    if (!confirm('Czy na pewno chcesz skopiować ten dokument? Zostanie utworzony nowy dokument z dzisiejszą datą i nowym numerem. Wszystkie pola będą edytowalne.')) {
+      return;
+    }
+    try {
+      const { data, error } = await supabase.rpc('duplicate_document', {
+        p_document_id: documentId,
+      });
+      if (error) throw error;
+      const newDocId = data as unknown as string;
+
+      toast({
+        title: "Skopiowano dokument",
+        description: "Otwieram nowy dokument do edycji…",
+      });
+
+      // Pobierz nowy dokument i otwórz w dialogu
+      const { data: newDoc, error: fetchErr } = await supabase
+        .from('documents')
+        .select(`*, locations(name), profiles!documents_user_id_fkey(name)`)
+        .eq('id', newDocId)
+        .single();
+      if (fetchErr) throw fetchErr;
+
+      await refetch();
+      const docForDialog: any = {
+        ...newDoc,
+        profiles: Array.isArray(newDoc.profiles) && newDoc.profiles.length > 0 ? newDoc.profiles[0] : newDoc.profiles,
+      };
+      setSelectedDocument(docForDialog);
+      setIsDialogOpen(true);
+    } catch (error: any) {
+      console.error('Error duplicating document:', error);
+      toast({
+        title: "Błąd kopiowania",
+        description: error?.message || "Nie udało się skopiować dokumentu",
+        variant: "destructive",
+      });
+    }
+  };
   const handleDocumentDelete = async (documentId: string, documentDate?: string, locationId?: string) => {
     // Jeśli mamy datę i lokalizację, sprawdź czy raport blokuje usunięcie
     if (documentDate && locationId) {
@@ -533,7 +573,7 @@ Wieża;"4.800,00";420-1-3-6;"4.800,00";100
         </div>
 
         {/* Documents table */}
-        <DocumentsTable documents={filteredDocuments} onDocumentClick={handleDocumentClick} onDocumentDelete={handleDocumentDelete} isLoading={isLoading} />
+        <DocumentsTable documents={filteredDocuments} onDocumentClick={handleDocumentClick} onDocumentDelete={handleDocumentDelete} onDocumentDuplicate={handleDocumentDuplicate} isLoading={isLoading} />
 
         {/* Pagination */}
         {totalPages > 1 && (
