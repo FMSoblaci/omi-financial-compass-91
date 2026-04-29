@@ -2,7 +2,7 @@ import React from "react";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Pencil, Trash2, AlertTriangle, Lock } from "lucide-react";
+import { Pencil, Trash2, AlertTriangle, Lock, Copy } from "lucide-react";
 import { format } from "date-fns";
 import { useAuth } from "@/context/AuthContext";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -32,10 +32,11 @@ interface DocumentsTableProps {
   documents: Document[];
   onDocumentClick: (document: Document) => void;
   onDocumentDelete: (documentId: string, documentDate?: string, locationId?: string) => void;
+  onDocumentDuplicate: (documentId: string) => void;
   isLoading: boolean;
 }
 
-const DocumentsTable: React.FC<DocumentsTableProps> = ({ documents, onDocumentClick, onDocumentDelete, isLoading }) => {
+const DocumentsTable: React.FC<DocumentsTableProps> = ({ documents, onDocumentClick, onDocumentDelete, onDocumentDuplicate, isLoading }) => {
   const { user } = useAuth();
   const isAdmin = user?.role === "prowincjal" || user?.role === "admin";
 
@@ -184,6 +185,17 @@ const DocumentsTable: React.FC<DocumentsTableProps> = ({ documents, onDocumentCl
                         title={locked ? "Podgląd (tylko do odczytu)" : "Edytuj"}
                       >
                         <Pencil className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onDocumentDuplicate(document.id);
+                        }}
+                        title="Kopiuj dokument (utworzy nowy z dzisiejszą datą)"
+                      >
+                        <Copy className="h-4 w-4" />
                       </Button>
                       {!locked && (
                         <Button
