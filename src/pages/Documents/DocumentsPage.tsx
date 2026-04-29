@@ -573,7 +573,7 @@ Wieża;"4.800,00";420-1-3-6;"4.800,00";100
         </div>
 
         {/* Documents table */}
-        <DocumentsTable documents={filteredDocuments} onDocumentClick={handleDocumentClick} onDocumentDelete={handleDocumentDelete} isLoading={isLoading} />
+        <DocumentsTable documents={filteredDocuments} onDocumentClick={handleDocumentClick} onDocumentDelete={handleDocumentDelete} onDocumentDuplicate={handleDocumentDuplicate} isLoading={isLoading} />
 
         {/* Pagination */}
         {totalPages > 1 && (
