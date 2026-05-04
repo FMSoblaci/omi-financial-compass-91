@@ -1812,8 +1812,8 @@ const DocumentDialog = ({ isOpen, onClose, onDocumentCreated, document, location
                 >
                   Anuluj
                 </Button>
-                <Button type="submit" disabled={isLoading || isFullyLocked || (isEditingBlocked && Boolean(documentDate))}>
-                  {isFullyLocked ? "Dokument zablokowany" : isLoading ? "Zapisywanie..." : document ? "Zapisz zmiany" : "Utwórz dokument"}
+                <Button type="submit" disabled={isLoading || isGeneratingNumber || isFullyLocked || (isEditingBlocked && Boolean(documentDate))}>
+                  {isFullyLocked ? "Dokument zablokowany" : isGeneratingNumber ? "Generowanie numeru..." : isLoading ? "Zapisywanie..." : document ? "Zapisz zmiany" : "Utwórz dokument"}
                 </Button>
               </div>
             </form>
