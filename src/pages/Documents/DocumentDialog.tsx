@@ -2199,9 +2199,9 @@ const DocumentDialog = ({ isOpen, onClose, onDocumentCreated, document, location
               <Button
                 type="submit"
                 onClick={form.handleSubmit(onSubmit)}
-                disabled={isLoading || (isEditingBlocked && Boolean(documentDate))}
+                disabled={isLoading || isGeneratingNumber || (isEditingBlocked && Boolean(documentDate))}
               >
-                {isLoading ? "Zapisywanie..." : document ? "Zapisz zmiany" : "Utwórz dokument"}
+                {isGeneratingNumber ? "Generowanie numeru..." : isLoading ? "Zapisywanie..." : document ? "Zapisz zmiany" : "Utwórz dokument"}
               </Button>
             </div>
           </div>
