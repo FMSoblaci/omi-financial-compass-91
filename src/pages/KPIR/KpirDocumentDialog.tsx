@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/Spinner";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { Bug } from "lucide-react";
-import html2canvas from "html2canvas";
+import { toPng } from "html-to-image";
 import { ErrorReportDialog } from "@/components/ErrorReportDialog";
 import { useToast } from "@/hooks/use-toast";
 import { useDocumentTransactions } from "./useDocumentTransactions";
@@ -52,44 +52,32 @@ const KpirDocumentDialog: React.FC<DocumentDialogProps> = ({
   const captureErrorScreenshot = async () => {
     setIsCapturingError(true);
     try {
-      // Przechwytuj tylko zawartość dialogu, nie całe body
       const dialogElement = window.document.querySelector('[role="dialog"]') as HTMLElement;
       const targetElement = dialogElement || window.document.body;
-      
-      // Pobierz rzeczywiste wymiary dialogu
-      const rect = targetElement.getBoundingClientRect();
-      
-      const canvas = await html2canvas(targetElement, {
-        allowTaint: true,
-        useCORS: true,
-        logging: false,
-        backgroundColor: '#ffffff',
-        scale: 1,
-        width: rect.width,
-        height: rect.height,
-        onclone: (clonedDoc, clonedElement) => {
-          // Usuń ciemne overlay z klonu
-          const overlays = clonedDoc.querySelectorAll('[data-radix-dialog-overlay]');
-          overlays.forEach(el => el.remove());
-          
-          // Usuń transformacje i pozycjonowanie fixed z klonowanego dialogu
-          if (clonedElement) {
-            clonedElement.style.position = 'static';
-            clonedElement.style.transform = 'none';
-            clonedElement.style.left = 'auto';
-            clonedElement.style.top = 'auto';
-            clonedElement.style.margin = '0';
-          }
-        }
+
+      const dataUrl = await toPng(targetElement, {
+        cacheBust: true,
+        pixelRatio: 1,
+        backgroundColor: "#ffffff",
+        filter: (node) => {
+          const el = node as HTMLElement;
+          if (!el?.getAttribute) return true;
+          if (el.getAttribute("data-radix-dialog-overlay") !== null) return false;
+          if (el.classList?.contains?.("error-report-button-ignore")) return false;
+          return true;
+        },
       });
-      const dataUrl = canvas.toDataURL("image/png");
+
+      if (!dataUrl || dataUrl.length < 1000) {
+        throw new Error("Empty screenshot");
+      }
       setErrorScreenshot(dataUrl);
       setErrorReportDialogOpen(true);
     } catch (error) {
       console.error("Error capturing screenshot:", error);
       toast({
-        title: "Błąd",
-        description: "Nie udało się zrobić screenshota, ale możesz zgłosić błąd bez niego.",
+        title: "Nie udało się zrobić screenshota",
+        description: "Możesz zgłosić błąd bez zrzutu ekranu.",
         variant: "destructive",
       });
       setErrorScreenshot(null);

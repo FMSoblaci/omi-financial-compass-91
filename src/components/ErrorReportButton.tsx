@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Bug } from "lucide-react";
 import { ErrorReportDialog } from "./ErrorReportDialog";
-import html2canvas from "html2canvas";
+import { toPng } from "html-to-image";
 import { useToast } from "@/hooks/use-toast";
 
 export const ErrorReportButton = () => {
@@ -13,39 +13,20 @@ export const ErrorReportButton = () => {
 
   const captureScreenshot = async () => {
     setIsCapturing(true);
-    console.log("Starting screenshot capture...");
     try {
-      console.log("Window dimensions:", { 
-        innerWidth: window.innerWidth, 
-        innerHeight: window.innerHeight,
-        scrollX: window.scrollX,
-        scrollY: window.scrollY
+      const dataUrl = await toPng(document.body, {
+        cacheBust: true,
+        pixelRatio: 1,
+        backgroundColor: "#ffffff",
+        filter: (node) => {
+          const el = node as HTMLElement;
+          if (!el?.classList) return true;
+          return !el.classList.contains("error-report-button-ignore");
+        },
       });
-      
-      const canvas = await html2canvas(document.body, {
-        allowTaint: true,
-        useCORS: true,
-        logging: true, // Enable html2canvas logging for debugging
-        width: window.innerWidth,
-        height: window.innerHeight,
-        windowWidth: window.innerWidth,
-        windowHeight: window.innerHeight,
-        x: window.scrollX,
-        y: window.scrollY,
-        scale: 1, // Use scale 1 for better performance
-        ignoreElements: (element) => {
-          // Ignore problematic elements that might cause issues
-          return element.classList?.contains('error-report-button-ignore');
-        }
-      });
-      
-      console.log("Canvas created:", { width: canvas.width, height: canvas.height });
-      const dataUrl = canvas.toDataURL("image/png");
-      console.log("Screenshot data URL length:", dataUrl.length);
-      
-      if (dataUrl && dataUrl.length > 100) {
+
+      if (dataUrl && dataUrl.length > 1000) {
         setScreenshot(dataUrl);
-        console.log("Screenshot captured successfully");
       } else {
         console.error("Screenshot data URL is too short or empty");
         setScreenshot(null);
@@ -54,8 +35,8 @@ export const ErrorReportButton = () => {
     } catch (error) {
       console.error("Error capturing screenshot:", error);
       toast({
-        title: "Błąd",
-        description: "Nie udało się zrobić screenshota, ale możesz zgłosić błąd bez niego.",
+        title: "Nie udało się zrobić screenshota",
+        description: "Możesz zgłosić błąd bez zrzutu ekranu.",
         variant: "destructive",
       });
       setScreenshot(null);

@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { DatePicker } from "@/components/ui/date-picker";
 import { Plus, Trash2, RefreshCw, Copy, BookOpen, Split, GripVertical, FileSpreadsheet, Bug } from "lucide-react";
 import * as XLSX from "xlsx";
-import html2canvas from "html2canvas";
+import { toPng } from "html-to-image";
 import { ErrorReportDialog } from "@/components/ErrorReportDialog";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
@@ -301,44 +301,32 @@ const DocumentDialog = ({ isOpen, onClose, onDocumentCreated, document, location
   const captureErrorScreenshot = async () => {
     setIsCapturingError(true);
     try {
-      // Przechwytuj tylko zawartość dialogu, nie całe body
       const dialogElement = window.document.querySelector('[role="dialog"]') as HTMLElement;
       const targetElement = dialogElement || window.document.body;
 
-      // Pobierz rzeczywiste wymiary dialogu
-      const rect = targetElement.getBoundingClientRect();
-
-      const canvas = await html2canvas(targetElement, {
-        allowTaint: true,
-        useCORS: true,
-        logging: false,
+      const dataUrl = await toPng(targetElement, {
+        cacheBust: true,
+        pixelRatio: 1,
         backgroundColor: "#ffffff",
-        scale: 1,
-        width: rect.width,
-        height: rect.height,
-        onclone: (clonedDoc, clonedElement) => {
-          // Usuń ciemne overlay z klonu
-          const overlays = clonedDoc.querySelectorAll("[data-radix-dialog-overlay]");
-          overlays.forEach((el) => el.remove());
-
-          // Usuń transformacje i pozycjonowanie fixed z klonowanego dialogu
-          if (clonedElement) {
-            clonedElement.style.position = "static";
-            clonedElement.style.transform = "none";
-            clonedElement.style.left = "auto";
-            clonedElement.style.top = "auto";
-            clonedElement.style.margin = "0";
-          }
+        filter: (node) => {
+          const el = node as HTMLElement;
+          if (!el?.getAttribute) return true;
+          if (el.getAttribute("data-radix-dialog-overlay") !== null) return false;
+          if (el.classList?.contains?.("error-report-button-ignore")) return false;
+          return true;
         },
       });
-      const dataUrl = canvas.toDataURL("image/png");
+
+      if (!dataUrl || dataUrl.length < 1000) {
+        throw new Error("Empty screenshot");
+      }
       setErrorScreenshot(dataUrl);
       setErrorReportDialogOpen(true);
     } catch (error) {
       console.error("Error capturing screenshot:", error);
       toast({
-        title: "Błąd",
-        description: "Nie udało się zrobić screenshota, ale możesz zgłosić błąd bez niego.",
+        title: "Nie udało się zrobić screenshota",
+        description: "Możesz zgłosić błąd bez zrzutu ekranu.",
         variant: "destructive",
       });
       setErrorScreenshot(null);
@@ -565,6 +553,7 @@ const DocumentDialog = ({ isOpen, onClose, onDocumentCreated, document, location
       });
       return "";
     }
+    const requestId = ++numberRequestIdRef.current;
     setIsGeneratingNumber(true);
     try {
       const year = date.getFullYear();
@@ -579,6 +568,10 @@ const DocumentDialog = ({ isOpen, onClose, onDocumentCreated, document, location
         console.error("Error generating document number:", error);
         throw error;
       }
+      // Ignoruj wynik jeśli nadszedł nowszy request — chroni przed race condition
+      if (requestId !== numberRequestIdRef.current) {
+        return "";
+      }
       return data || "";
     } catch (error: any) {
       console.error("Error generating document number:", error);
@@ -589,12 +582,16 @@ const DocumentDialog = ({ isOpen, onClose, onDocumentCreated, document, location
       });
       return "";
     } finally {
-      setIsGeneratingNumber(false);
+      if (requestId === numberRequestIdRef.current) {
+        setIsGeneratingNumber(false);
+      }
     }
   };
 
   // Przechowaj oryginalny miesiąc/rok dokumentu przy edycji
   const originalDocumentDate = useRef<{ month: number; year: number } | null>(null);
+  // Licznik requestów do generowania numeru — chroni przed race condition
+  const numberRequestIdRef = useRef<number>(0);
 
   useEffect(() => {
     if (document) {
@@ -765,6 +762,15 @@ const DocumentDialog = ({ isOpen, onClose, onDocumentCreated, document, location
       toast({
         title: "Błąd",
         description: "Nie można określić lokalizacji lub ID użytkownika",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (isGeneratingNumber) {
+      toast({
+        title: "Trwa generowanie numeru",
+        description: "Poczekaj chwilę i spróbuj ponownie zapisać.",
         variant: "destructive",
       });
       return;
@@ -1806,8 +1812,8 @@ const DocumentDialog = ({ isOpen, onClose, onDocumentCreated, document, location
                 >
                   Anuluj
                 </Button>
-                <Button type="submit" disabled={isLoading || isFullyLocked || (isEditingBlocked && Boolean(documentDate))}>
-                  {isFullyLocked ? "Dokument zablokowany" : isLoading ? "Zapisywanie..." : document ? "Zapisz zmiany" : "Utwórz dokument"}
+                <Button type="submit" disabled={isLoading || isGeneratingNumber || isFullyLocked || (isEditingBlocked && Boolean(documentDate))}>
+                  {isFullyLocked ? "Dokument zablokowany" : isGeneratingNumber ? "Generowanie numeru..." : isLoading ? "Zapisywanie..." : document ? "Zapisz zmiany" : "Utwórz dokument"}
                 </Button>
               </div>
             </form>
@@ -2193,9 +2199,9 @@ const DocumentDialog = ({ isOpen, onClose, onDocumentCreated, document, location
               <Button
                 type="submit"
                 onClick={form.handleSubmit(onSubmit)}
-                disabled={isLoading || (isEditingBlocked && Boolean(documentDate))}
+                disabled={isLoading || isGeneratingNumber || (isEditingBlocked && Boolean(documentDate))}
               >
-                {isLoading ? "Zapisywanie..." : document ? "Zapisz zmiany" : "Utwórz dokument"}
+                {isGeneratingNumber ? "Generowanie numeru..." : isLoading ? "Zapisywanie..." : document ? "Zapisz zmiany" : "Utwórz dokument"}
               </Button>
             </div>
           </div>
