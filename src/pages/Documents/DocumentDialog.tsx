@@ -666,8 +666,10 @@ const DocumentDialog = ({ isOpen, onClose, onDocumentCreated, document, location
             generateDocumentNumber(newDate, document.location_id).then((generatedNumber) => {
               if (generatedNumber) {
                 form.setValue("document_number", generatedNumber);
-                // Zaktualizuj referencję do nowego miesiąca/roku
-                originalDocumentDate.current = { month: newMonth, year: newYear };
+                // UWAGA: NIE aktualizujemy originalDocumentDate.current tutaj.
+                // Dzięki temu, jeśli użytkownik anuluje zmiany (zamknie bez zapisu),
+                // nic nie zostaje zapisane do bazy. Aktualizacja referencji
+                // następuje dopiero po realnym zapisie (w onSubmit).
               }
             });
           }
