@@ -46,6 +46,7 @@ import {
 } from 'lucide-react';
 import PageTitle from '@/components/ui/PageTitle';
 import ContactsDirectory from './ContactsDirectory';
+import UserMediaSection from './UserMediaSection';
 import { CalendarView } from '@/pages/Calendar/CalendarView';
 import { UpcomingEvents } from '@/pages/Calendar/UpcomingEvents';
 import { EventsList } from '@/pages/Calendar/EventsList';
