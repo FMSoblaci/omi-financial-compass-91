@@ -366,10 +366,12 @@ const DocumentDialog = ({ isOpen, onClose, onDocumentCreated, document, location
   }, [isOpen, document]);
 
   useEffect(() => {
-    if (isOpen && !document && transactions.length === 0 && !showInlineForm) {
+    // Auto-pokazuj inline-form ZAWSZE gdy dokument jest otwarty i edytowalny.
+    // Dzięki temu Tab z ostatniej operacji wpada od razu w pole "Opis" nowej.
+    if (isOpen && !showInlineForm && !isFullyLocked && !isEditingBlocked) {
       setShowInlineForm(true);
     }
-  }, [isOpen, document, transactions.length, showInlineForm]);
+  }, [isOpen, showInlineForm, isFullyLocked, isEditingBlocked]);
 
   // Add warning before closing browser/tab when dialog is open
   useEffect(() => {
