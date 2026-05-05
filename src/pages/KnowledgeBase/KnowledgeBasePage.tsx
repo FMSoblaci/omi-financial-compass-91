@@ -821,6 +821,7 @@ const KnowledgeBasePage: React.FC = () => {
         </div>
 
         <TabsContent value="notes">
+          <UserMediaSection topicKey="kb.notes" topicTitle="Artykuły" />
           <div className="flex flex-col lg:flex-row gap-6">
             {/* Category Sidebar */}
             <div className="w-full lg:w-64 flex-shrink-0">
@@ -1000,6 +1001,7 @@ const KnowledgeBasePage: React.FC = () => {
         </TabsContent>
 
         <TabsContent value="documents">
+          <UserMediaSection topicKey="kb.documents" topicTitle="Dokumenty" />
           <div className="mb-4">
             <Select value={categoryFilter} onValueChange={setCategoryFilter}>
               <SelectTrigger className="w-[200px]">
@@ -1074,10 +1076,12 @@ const KnowledgeBasePage: React.FC = () => {
 
         <TabsContent value="calendar">
           <CalendarTabContent />
+          <UserMediaSection topicKey="kb.calendar" topicTitle="Kalendarz" />
         </TabsContent>
 
         <TabsContent value="contacts">
           <ContactsDirectory />
+          <UserMediaSection topicKey="kb.contacts" topicTitle="Kontakty" />
         </TabsContent>
       </Tabs>
       </div>
