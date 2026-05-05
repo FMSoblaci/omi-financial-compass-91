@@ -1119,6 +1119,11 @@ const DocumentDialog = ({ isOpen, onClose, onDocumentCreated, document, location
       setHasUnsavedChanges(false);
       onDocumentCreated();
       onClose();
+      // Po realnym zapisie zaktualizuj referencję miesiąca/roku
+      originalDocumentDate.current = {
+        month: data.document_date.getMonth(),
+        year: data.document_date.getFullYear(),
+      };
       toast({
         title: "Sukces",
         description: document ? "Dokument został zaktualizowany" : "Dokument został utworzony",
