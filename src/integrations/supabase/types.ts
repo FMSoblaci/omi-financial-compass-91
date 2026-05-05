@@ -575,6 +575,39 @@ export type Database = {
           },
         ]
       }
+      documents_audit_log: {
+        Row: {
+          action: string
+          changed_at: string
+          changed_by: string | null
+          changed_columns: Json | null
+          document_id: string | null
+          id: string
+          new_values: Json | null
+          old_values: Json | null
+        }
+        Insert: {
+          action: string
+          changed_at?: string
+          changed_by?: string | null
+          changed_columns?: Json | null
+          document_id?: string | null
+          id?: string
+          new_values?: Json | null
+          old_values?: Json | null
+        }
+        Update: {
+          action?: string
+          changed_at?: string
+          changed_by?: string | null
+          changed_columns?: Json | null
+          document_id?: string | null
+          id?: string
+          new_values?: Json | null
+          old_values?: Json | null
+        }
+        Relationships: []
+      }
       error_report_responses: {
         Row: {
           attachments: string[] | null
@@ -764,6 +797,45 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      knowledge_user_media: {
+        Row: {
+          created_at: string
+          description: string | null
+          file_path: string
+          file_size: number | null
+          file_type: string
+          id: string
+          mime_type: string | null
+          title: string
+          topic_key: string
+          uploaded_by: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          file_path: string
+          file_size?: number | null
+          file_type: string
+          id?: string
+          mime_type?: string | null
+          title: string
+          topic_key: string
+          uploaded_by: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          file_path?: string
+          file_size?: number | null
+          file_type?: string
+          id?: string
+          mime_type?: string | null
+          title?: string
+          topic_key?: string
+          uploaded_by?: string
+        }
+        Relationships: []
       }
       location_accounts: {
         Row: {

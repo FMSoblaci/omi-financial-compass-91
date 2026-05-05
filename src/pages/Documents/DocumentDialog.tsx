@@ -366,10 +366,12 @@ const DocumentDialog = ({ isOpen, onClose, onDocumentCreated, document, location
   }, [isOpen, document]);
 
   useEffect(() => {
-    if (isOpen && !document && transactions.length === 0 && !showInlineForm) {
+    // Auto-pokazuj inline-form ZAWSZE gdy dokument jest otwarty i edytowalny.
+    // Dzięki temu Tab z ostatniej operacji wpada od razu w pole "Opis" nowej.
+    if (isOpen && !showInlineForm && !isFullyLocked && !isEditingBlocked) {
       setShowInlineForm(true);
     }
-  }, [isOpen, document, transactions.length, showInlineForm]);
+  }, [isOpen, showInlineForm, isFullyLocked, isEditingBlocked]);
 
   // Add warning before closing browser/tab when dialog is open
   useEffect(() => {
@@ -666,8 +668,10 @@ const DocumentDialog = ({ isOpen, onClose, onDocumentCreated, document, location
             generateDocumentNumber(newDate, document.location_id).then((generatedNumber) => {
               if (generatedNumber) {
                 form.setValue("document_number", generatedNumber);
-                // Zaktualizuj referencję do nowego miesiąca/roku
-                originalDocumentDate.current = { month: newMonth, year: newYear };
+                // UWAGA: NIE aktualizujemy originalDocumentDate.current tutaj.
+                // Dzięki temu, jeśli użytkownik anuluje zmiany (zamknie bez zapisu),
+                // nic nie zostaje zapisane do bazy. Aktualizacja referencji
+                // następuje dopiero po realnym zapisie (w onSubmit).
               }
             });
           }
@@ -1117,6 +1121,11 @@ const DocumentDialog = ({ isOpen, onClose, onDocumentCreated, document, location
       setHasUnsavedChanges(false);
       onDocumentCreated();
       onClose();
+      // Po realnym zapisie zaktualizuj referencję miesiąca/roku
+      originalDocumentDate.current = {
+        month: data.document_date.getMonth(),
+        year: data.document_date.getFullYear(),
+      };
       toast({
         title: "Sukces",
         description: document ? "Dokument został zaktualizowany" : "Dokument został utworzony",
