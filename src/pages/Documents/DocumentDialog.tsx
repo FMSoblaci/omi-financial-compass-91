@@ -1162,8 +1162,8 @@ const DocumentDialog = ({ isOpen, onClose, onDocumentCreated, document, location
           // Only add fee if this was a pending transaction and doesn't already have a fee after it
           const isPending = mainPending.some(p => p.index === i);
           const nextIsFee = prev[i + 1]?.is_provincial_fee;
-          if (isPending && !nextIsFee && !tx.is_provincial_fee && shouldCreateProvincialFee(tx)) {
-            const feeTransaction = createProvincialFeeTransaction(tx, i);
+          if (isPending && !nextIsFee && !tx.is_provincial_fee && shouldCreateProvincialFee(tx, effectiveLocationId)) {
+            const feeTransaction = createProvincialFeeTransaction(tx, i, effectiveLocationId);
             result.push(feeTransaction);
           }
         }
@@ -1181,8 +1181,8 @@ const DocumentDialog = ({ isOpen, onClose, onDocumentCreated, document, location
           result.push(tx);
           const isPending = parallelPending.some(p => p.index === i);
           const nextIsFee = prev[i + 1]?.is_provincial_fee;
-          if (isPending && !nextIsFee && !tx.is_provincial_fee && shouldCreateProvincialFee(tx)) {
-            const feeTransaction = createProvincialFeeTransaction(tx, i);
+          if (isPending && !nextIsFee && !tx.is_provincial_fee && shouldCreateProvincialFee(tx, effectiveLocationId)) {
+            const feeTransaction = createProvincialFeeTransaction(tx, i, effectiveLocationId);
             result.push(feeTransaction);
           }
         }
@@ -1201,8 +1201,8 @@ const DocumentDialog = ({ isOpen, onClose, onDocumentCreated, document, location
       display_order: transactions.length + 1,
     };
 
-    if (provincialFeeReady && shouldCreateProvincialFee(transactionWithCurrency)) {
-      const feeTransaction = createProvincialFeeTransaction(transactionWithCurrency, transactions.length);
+    if (provincialFeeReady && shouldCreateProvincialFee(transactionWithCurrency, effectiveLocationId)) {
+      const feeTransaction = createProvincialFeeTransaction(transactionWithCurrency, transactions.length, effectiveLocationId);
       setTransactions((prev) => [...prev, transactionWithCurrency, feeTransaction]);
     } else {
       setTransactions((prev) => [...prev, transactionWithCurrency]);
@@ -1222,8 +1222,8 @@ const DocumentDialog = ({ isOpen, onClose, onDocumentCreated, document, location
       display_order: parallelTransactions.length + 1,
     };
 
-    if (provincialFeeReady && shouldCreateProvincialFee(transactionWithCurrency)) {
-      const feeTransaction = createProvincialFeeTransaction(transactionWithCurrency, parallelTransactions.length);
+    if (provincialFeeReady && shouldCreateProvincialFee(transactionWithCurrency, effectiveLocationId)) {
+      const feeTransaction = createProvincialFeeTransaction(transactionWithCurrency, parallelTransactions.length, effectiveLocationId);
       setParallelTransactions((prev) => [...prev, transactionWithCurrency, feeTransaction]);
     } else {
       setParallelTransactions((prev) => [...prev, transactionWithCurrency]);
