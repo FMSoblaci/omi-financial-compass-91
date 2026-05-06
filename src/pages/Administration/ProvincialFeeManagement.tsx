@@ -302,6 +302,49 @@ const ProvincialFeeManagement = () => {
     },
   });
 
+  // Update per-account fee percentage
+  const updatePercentMutation = useMutation({
+    mutationFn: async ({ id, fee_percentage }: { id: string; fee_percentage: number | null }) => {
+      const { error } = await supabase
+        .from('provincial_fee_accounts')
+        .update({ fee_percentage })
+        .eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['provincialFeeAccounts'] });
+      toast({ title: 'Zapisano', description: 'Procent dla konta został zaktualizowany' });
+    },
+    onError: (error: any) => {
+      toast({ title: 'Błąd', description: error.message, variant: 'destructive' });
+    },
+  });
+
+  // Toggle exclusion (location for trigger account)
+  const toggleExclusionMutation = useMutation({
+    mutationFn: async ({ accountId, locationId, exclude }: { accountId: string; locationId: string; exclude: boolean }) => {
+      if (exclude) {
+        const { error } = await supabase
+          .from('provincial_fee_account_exclusions')
+          .insert({ provincial_fee_account_id: accountId, location_id: locationId });
+        if (error && !String(error.message).includes('duplicate')) throw error;
+      } else {
+        const { error } = await supabase
+          .from('provincial_fee_account_exclusions')
+          .delete()
+          .eq('provincial_fee_account_id', accountId)
+          .eq('location_id', locationId);
+        if (error) throw error;
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['provincialFeeAccountExclusions'] });
+    },
+    onError: (error: any) => {
+      toast({ title: 'Błąd', description: error.message, variant: 'destructive' });
+    },
+  });
+
   if (loadingSettings || loadingAccounts) {
     return (
       <Card>
