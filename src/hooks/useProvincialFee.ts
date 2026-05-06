@@ -32,22 +32,34 @@ export const useProvincialFee = () => {
     },
   });
 
-  const { data: triggerPrefixes, isLoading: prefixesLoading } = useQuery({
+  const { data: triggerAccounts, isLoading: prefixesLoading } = useQuery({
     queryKey: ['provincialFeeAccounts'],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('provincial_fee_accounts')
-        .select('account_number_prefix');
+        .select('id, account_number_prefix, fee_percentage');
       if (error) throw error;
-      return data?.map((a: any) => a.account_number_prefix as string) || [];
+      return (data || []) as Array<{ id: string; account_number_prefix: string; fee_percentage: number | null }>;
+    },
+  });
+
+  const triggerPrefixes = triggerAccounts?.map((a) => a.account_number_prefix) || [];
+
+  const { data: exclusions, isLoading: exclusionsLoading } = useQuery({
+    queryKey: ['provincialFeeAccountExclusions'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('provincial_fee_account_exclusions')
+        .select('provincial_fee_account_id, location_id');
+      if (error) throw error;
+      return (data || []) as Array<{ provincial_fee_account_id: string; location_id: string }>;
     },
   });
 
   const isConfigured = Boolean(
     settings &&
-    triggerPrefixes &&
-    triggerPrefixes.length > 0 &&
-    settings.fee_percentage > 0 &&
+    triggerAccounts &&
+    triggerAccounts.length > 0 &&
     settings.target_debit_account_prefix &&
     settings.target_credit_account_prefix
   );
@@ -57,10 +69,11 @@ export const useProvincialFee = () => {
     !accountsLoading &&
     !settingsLoading &&
     !prefixesLoading &&
+    !exclusionsLoading &&
     accounts &&
     accounts.length > 0 &&
     settings !== undefined &&
-    triggerPrefixes !== undefined
+    triggerAccounts !== undefined
   );
 
   /** Get the base prefix (first segment before dash) from an account ID */
@@ -89,43 +102,80 @@ export const useProvincialFee = () => {
     return match?.id || null;
   };
 
+  /** Find a trigger account row matching given prefix */
+  const findTriggerAccount = (prefix: string) => {
+    if (!prefix || !triggerAccounts) return undefined;
+    return triggerAccounts.find((t) => t.account_number_prefix === prefix);
+  };
+
+  /** Effective % for a trigger account (per-account override or global fallback) */
+  const getEffectivePercentage = (triggerPrefix: string): number => {
+    const t = findTriggerAccount(triggerPrefix);
+    if (t && t.fee_percentage != null && t.fee_percentage > 0) return Number(t.fee_percentage);
+    return Number(settings?.fee_percentage || 0);
+  };
+
+  /** Is the location excluded from fee for this trigger prefix? */
+  const isLocationExcluded = (triggerPrefix: string, locationId?: string | null): boolean => {
+    if (!locationId) return false;
+    const t = findTriggerAccount(triggerPrefix);
+    if (!t || !exclusions) return false;
+    return exclusions.some((e) => e.provincial_fee_account_id === t.id && e.location_id === locationId);
+  };
+
+  /**
+   * Determine which trigger prefix applies to the operation (and is not excluded for the location).
+   * Returns the effective prefix or null if none applies.
+   */
+  const matchTriggerPrefix = (
+    debitAccountId: string | null,
+    creditAccountId: string | null,
+    locationId?: string | null
+  ): string | null => {
+    if (!isConfigured || !triggerAccounts) return null;
+    const candidates: string[] = [];
+    if (debitAccountId) {
+      const p = getAccountPrefix(debitAccountId);
+      if (p && triggerPrefixes.includes(p)) candidates.push(p);
+    }
+    if (creditAccountId) {
+      const p = getAccountPrefix(creditAccountId);
+      if (p && triggerPrefixes.includes(p)) candidates.push(p);
+    }
+    for (const p of candidates) {
+      if (!isLocationExcluded(p, locationId)) return p;
+    }
+    return null;
+  };
+
   /** Check if a transaction should trigger a provincial fee (by account IDs) */
-  const shouldCreateProvincialFee = (transaction: Transaction): boolean => {
-    if (!isConfigured) return false;
-
-    const debitPrefix = getAccountPrefix(transaction.debit_account_id);
-    const creditPrefix = getAccountPrefix(transaction.credit_account_id);
-
-    return (
-      (debitPrefix !== '' && triggerPrefixes!.includes(debitPrefix)) ||
-      (creditPrefix !== '' && triggerPrefixes!.includes(creditPrefix))
-    );
+  const shouldCreateProvincialFee = (transaction: Transaction, locationId?: string | null): boolean => {
+    return matchTriggerPrefix(transaction.debit_account_id, transaction.credit_account_id, locationId) !== null;
   };
 
   /** Check if account IDs (UUIDs) trigger provincial fee — for importers that already resolved accounts */
   const shouldCreateProvincialFeeByIds = (
     debitAccountId: string | null,
-    creditAccountId: string | null
+    creditAccountId: string | null,
+    locationId?: string | null
   ): boolean => {
-    if (!isConfigured) return false;
-    if (!debitAccountId && !creditAccountId) return false;
-
-    const debitPrefix = debitAccountId ? getAccountPrefix(debitAccountId) : '';
-    const creditPrefix = creditAccountId ? getAccountPrefix(creditAccountId) : '';
-
-    return (
-      (debitPrefix !== '' && triggerPrefixes!.includes(debitPrefix)) ||
-      (creditPrefix !== '' && triggerPrefixes!.includes(creditPrefix))
-    );
+    return matchTriggerPrefix(debitAccountId, creditAccountId, locationId) !== null;
   };
 
   /** Create the provincial fee Transaction object (for DocumentDialog UI state) */
   const createProvincialFeeTransaction = (
     baseTransaction: Transaction,
-    baseIndex: number
+    baseIndex: number,
+    locationId?: string | null
   ): Transaction => {
     const amount = Math.max(baseTransaction.debit_amount || 0, baseTransaction.credit_amount || 0);
-    const feeAmount = Math.round(amount * (settings!.fee_percentage / 100) * 100) / 100;
+    const triggerPrefix = matchTriggerPrefix(
+      baseTransaction.debit_account_id,
+      baseTransaction.credit_account_id,
+      locationId
+    );
+    const pct = triggerPrefix ? getEffectivePercentage(triggerPrefix) : Number(settings?.fee_percentage || 0);
+    const feeAmount = Math.round(amount * (pct / 100) * 100) / 100;
 
     const debitAccountId = resolveAccountByPrefix(settings!.target_debit_account_prefix!) || '';
     const creditAccountId = resolveAccountByPrefix(settings!.target_credit_account_prefix!) || '';
@@ -160,7 +210,8 @@ export const useProvincialFee = () => {
     [key: string]: any;
   }>(
     transactionsToImport: T[],
-    baseFields: Omit<T, 'debit_account_id' | 'credit_account_id' | 'debit_amount' | 'credit_amount' | 'amount' | 'description' | 'display_order'>
+    baseFields: Omit<T, 'debit_account_id' | 'credit_account_id' | 'debit_amount' | 'credit_amount' | 'amount' | 'description' | 'display_order'>,
+    locationId?: string | null
   ): T[] => {
     if (!isConfigured) return transactionsToImport;
 
@@ -172,13 +223,15 @@ export const useProvincialFee = () => {
       const txWithOrder = { ...tx, display_order: displayOrderCounter++ };
       result.push(txWithOrder);
 
-      if (shouldCreateProvincialFeeByIds(tx.debit_account_id, tx.credit_account_id)) {
+      const triggerPrefix = matchTriggerPrefix(tx.debit_account_id, tx.credit_account_id, locationId);
+      if (triggerPrefix) {
         const baseAmount = Math.max(
           Math.abs(tx.debit_amount || 0),
           Math.abs(tx.credit_amount || 0),
           Math.abs(tx.amount || 0)
         );
-        const feeAmount = Math.round(baseAmount * (settings!.fee_percentage / 100) * 100) / 100;
+        const pct = getEffectivePercentage(triggerPrefix);
+        const feeAmount = Math.round(baseAmount * (pct / 100) * 100) / 100;
 
         if (feeAmount > 0) {
           const debitAccountId = resolveAccountByPrefix(settings!.target_debit_account_prefix!);
@@ -206,11 +259,16 @@ export const useProvincialFee = () => {
   return {
     settings,
     triggerPrefixes,
+    triggerAccounts,
+    exclusions,
     isConfigured,
     isReady,
     getAccountPrefix,
     getAccountPrefixFromNumber,
     resolveAccountByPrefix,
+    getEffectivePercentage,
+    isLocationExcluded,
+    matchTriggerPrefix,
     shouldCreateProvincialFee,
     shouldCreateProvincialFeeByIds,
     createProvincialFeeTransaction,
