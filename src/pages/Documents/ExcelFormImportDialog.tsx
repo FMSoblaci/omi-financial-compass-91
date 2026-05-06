@@ -445,7 +445,8 @@ const ExcelFormImportDialog: React.FC<ExcelFormImportDialogProps> = ({ open, onC
           settlement_type: parsedData.paymentType === "gotowka" ? "Gotówka" : "Bank",
           location_id: user.location,
           user_id: user.id,
-        }
+        },
+        user.location
       );
 
       // Wstaw transakcje

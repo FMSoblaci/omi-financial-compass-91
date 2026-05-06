@@ -1150,20 +1150,59 @@ export type Database = {
           },
         ]
       }
+      provincial_fee_account_exclusions: {
+        Row: {
+          created_at: string
+          id: string
+          location_id: string
+          provincial_fee_account_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          location_id: string
+          provincial_fee_account_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          location_id?: string
+          provincial_fee_account_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "provincial_fee_account_exclusion_provincial_fee_account_id_fkey"
+            columns: ["provincial_fee_account_id"]
+            isOneToOne: false
+            referencedRelation: "provincial_fee_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "provincial_fee_account_exclusions_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       provincial_fee_accounts: {
         Row: {
           account_number_prefix: string
           created_at: string | null
+          fee_percentage: number | null
           id: string
         }
         Insert: {
           account_number_prefix: string
           created_at?: string | null
+          fee_percentage?: number | null
           id?: string
         }
         Update: {
           account_number_prefix?: string
           created_at?: string | null
+          fee_percentage?: number | null
           id?: string
         }
         Relationships: []

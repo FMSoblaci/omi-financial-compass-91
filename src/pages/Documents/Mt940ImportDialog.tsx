@@ -563,7 +563,8 @@ interface Mt940Data {
           location_id: user.location,
           user_id: user.id,
           created_at: new Date().toISOString(),
-        }
+        },
+        user.location
       );
 
       const { error: transError } = await supabase

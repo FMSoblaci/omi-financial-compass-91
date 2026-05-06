@@ -243,7 +243,8 @@ const KpirImportDialog: React.FC<KpirImportDialogProps> = ({ open, onClose, onIm
                 exchange_rate: 1,
                 location_id: user.location,
                 user_id: user.id,
-              }
+              },
+              user.location
             );
 
             if (withProvincialFees.length > 0) {

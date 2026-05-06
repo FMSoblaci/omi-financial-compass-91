@@ -130,6 +130,8 @@ const DocumentDialog = ({ isOpen, onClose, onDocumentCreated, document, location
     enabled: !!user?.id,
   });
 
+  const effectiveLocationId = locationIdOverride || document?.location_id || userProfile?.location_id || null;
+
   const { data: locationSettings } = useQuery({
     queryKey: ["locationSettings", userProfile?.location_id],
     queryFn: async () => {
@@ -1162,8 +1164,8 @@ const DocumentDialog = ({ isOpen, onClose, onDocumentCreated, document, location
           // Only add fee if this was a pending transaction and doesn't already have a fee after it
           const isPending = mainPending.some(p => p.index === i);
           const nextIsFee = prev[i + 1]?.is_provincial_fee;
-          if (isPending && !nextIsFee && !tx.is_provincial_fee && shouldCreateProvincialFee(tx)) {
-            const feeTransaction = createProvincialFeeTransaction(tx, i);
+          if (isPending && !nextIsFee && !tx.is_provincial_fee && shouldCreateProvincialFee(tx, effectiveLocationId)) {
+            const feeTransaction = createProvincialFeeTransaction(tx, i, effectiveLocationId);
             result.push(feeTransaction);
           }
         }
@@ -1181,8 +1183,8 @@ const DocumentDialog = ({ isOpen, onClose, onDocumentCreated, document, location
           result.push(tx);
           const isPending = parallelPending.some(p => p.index === i);
           const nextIsFee = prev[i + 1]?.is_provincial_fee;
-          if (isPending && !nextIsFee && !tx.is_provincial_fee && shouldCreateProvincialFee(tx)) {
-            const feeTransaction = createProvincialFeeTransaction(tx, i);
+          if (isPending && !nextIsFee && !tx.is_provincial_fee && shouldCreateProvincialFee(tx, effectiveLocationId)) {
+            const feeTransaction = createProvincialFeeTransaction(tx, i, effectiveLocationId);
             result.push(feeTransaction);
           }
         }
@@ -1201,8 +1203,8 @@ const DocumentDialog = ({ isOpen, onClose, onDocumentCreated, document, location
       display_order: transactions.length + 1,
     };
 
-    if (provincialFeeReady && shouldCreateProvincialFee(transactionWithCurrency)) {
-      const feeTransaction = createProvincialFeeTransaction(transactionWithCurrency, transactions.length);
+    if (provincialFeeReady && shouldCreateProvincialFee(transactionWithCurrency, effectiveLocationId)) {
+      const feeTransaction = createProvincialFeeTransaction(transactionWithCurrency, transactions.length, effectiveLocationId);
       setTransactions((prev) => [...prev, transactionWithCurrency, feeTransaction]);
     } else {
       setTransactions((prev) => [...prev, transactionWithCurrency]);
@@ -1222,8 +1224,8 @@ const DocumentDialog = ({ isOpen, onClose, onDocumentCreated, document, location
       display_order: parallelTransactions.length + 1,
     };
 
-    if (provincialFeeReady && shouldCreateProvincialFee(transactionWithCurrency)) {
-      const feeTransaction = createProvincialFeeTransaction(transactionWithCurrency, parallelTransactions.length);
+    if (provincialFeeReady && shouldCreateProvincialFee(transactionWithCurrency, effectiveLocationId)) {
+      const feeTransaction = createProvincialFeeTransaction(transactionWithCurrency, parallelTransactions.length, effectiveLocationId);
       setParallelTransactions((prev) => [...prev, transactionWithCurrency, feeTransaction]);
     } else {
       setParallelTransactions((prev) => [...prev, transactionWithCurrency]);
@@ -1426,37 +1428,22 @@ const DocumentDialog = ({ isOpen, onClose, onDocumentCreated, document, location
     const isAlreadySplit = (debitAmount === 0 && creditAmount > 0) || (creditAmount === 0 && debitAmount > 0);
 
     if (isAlreadySplit) {
-      // If already split, calculate total debit and credit sums from all transactions
-      const allTransactions = [...transactions, ...parallelTransactions];
+      // Operacja ma jedną stronę pustą (np. po imporcie MT940/CSV lub po wcześniejszym rozbiciu).
+      // Tworzymy nowy wiersz uzupełniający — kwota brana TYLKO z tej operacji (nie z sumy dokumentu).
+      const filledAmount = debitAmount > 0 ? debitAmount : creditAmount;
+      const filledSideIsDebit = debitAmount > 0;
 
-      const totalDebit = allTransactions.reduce((sum, t) => sum + (t.debit_amount || 0), 0);
-      const totalCredit = allTransactions.reduce((sum, t) => sum + (t.credit_amount || 0), 0);
-
-      // Determine which side has smaller sum
-      const isDebitSideSmaller = totalDebit < totalCredit;
-      const balanceAmount = Math.abs(totalDebit - totalCredit);
-
-    if (balanceAmount < 0.01) {
-        toast({
-          title: "Błąd",
-          description: "Sumy Wn i Ma są już wyrównane — nie ma czego rozbijać",
-          variant: "destructive",
-        });
-        return;
-      }
-
-      // Create transaction with the same empty field as original
-      // Fill the side with smaller total sum with the balancing amount
+      // Nowy wiersz: po przeciwnej (pustej) stronie dajemy tę samą kwotę,
+      // strona już wypełniona pozostaje pusta — użytkownik wskaże nowe konto.
       const newTransaction: Transaction = {
         ...transaction,
         id: undefined,
         description: transaction.description,
-        debit_amount: isDebitSideSmaller ? balanceAmount : undefined,
-        credit_amount: isDebitSideSmaller ? undefined : balanceAmount,
-        amount: balanceAmount,
-        // Only set account on the side that has an amount
-        debit_account_id: isDebitSideSmaller ? transaction.debit_account_id : undefined,
-        credit_account_id: isDebitSideSmaller ? undefined : transaction.credit_account_id,
+        debit_amount: filledSideIsDebit ? undefined : filledAmount,
+        credit_amount: filledSideIsDebit ? filledAmount : undefined,
+        amount: filledAmount,
+        debit_account_id: filledSideIsDebit ? undefined : transaction.debit_account_id,
+        credit_account_id: filledSideIsDebit ? transaction.credit_account_id : undefined,
       };
 
       if (isParallel) {
@@ -1482,8 +1469,8 @@ const DocumentDialog = ({ isOpen, onClose, onDocumentCreated, document, location
       }
 
       toast({
-        title: "Kwota wyrównana",
-        description: `Utworzono operację wyrównującą: ${balanceAmount.toFixed(2)} ${form.getValues("currency")}`,
+        title: "Kwota rozdzielona",
+        description: `Utworzono operację z kwotą: ${filledAmount.toFixed(2)} ${form.getValues("currency")}`,
       });
     } else {
       // Normal split: both fields have values

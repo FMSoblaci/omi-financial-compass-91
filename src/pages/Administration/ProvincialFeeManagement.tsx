@@ -12,8 +12,10 @@ import { Spinner } from '@/components/ui/Spinner';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Command, CommandEmpty, CommandInput, CommandGroup, CommandItem, CommandList } from '@/components/ui/command';
-import { Check, ChevronsUpDown } from 'lucide-react';
+import { Check, ChevronsUpDown, Building2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Checkbox } from '@/components/ui/checkbox';
 
 interface AccountPrefixSelectorProps {
   value: string;
@@ -175,11 +177,39 @@ const ProvincialFeeManagement = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('provincial_fee_accounts')
-        .select('id, account_number_prefix');
+        .select('id, account_number_prefix, fee_percentage');
       if (error) throw error;
       return data;
     },
   });
+
+  // Locations for exclusion dialog
+  const { data: locations } = useQuery({
+    queryKey: ['locations-for-fee-exclusions'],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('locations').select('id, name').order('name');
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  // Exclusions
+  const { data: exclusions } = useQuery({
+    queryKey: ['provincialFeeAccountExclusions'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('provincial_fee_account_exclusions')
+        .select('id, provincial_fee_account_id, location_id');
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  // Local state for inline % editing per row
+  const [percentEdits, setPercentEdits] = React.useState<Record<string, string>>({});
+
+  // Exclusions dialog state
+  const [exclusionsForId, setExclusionsForId] = React.useState<string | null>(null);
 
   // Local form state
   const [feePercentage, setFeePercentage] = React.useState<string>('');
@@ -266,6 +296,49 @@ const ProvincialFeeManagement = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['provincialFeeAccounts'] });
       toast({ title: 'Usunięto', description: 'Prefix konta wyzwalającego został usunięty' });
+    },
+    onError: (error: any) => {
+      toast({ title: 'Błąd', description: error.message, variant: 'destructive' });
+    },
+  });
+
+  // Update per-account fee percentage
+  const updatePercentMutation = useMutation({
+    mutationFn: async ({ id, fee_percentage }: { id: string; fee_percentage: number | null }) => {
+      const { error } = await supabase
+        .from('provincial_fee_accounts')
+        .update({ fee_percentage })
+        .eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['provincialFeeAccounts'] });
+      toast({ title: 'Zapisano', description: 'Procent dla konta został zaktualizowany' });
+    },
+    onError: (error: any) => {
+      toast({ title: 'Błąd', description: error.message, variant: 'destructive' });
+    },
+  });
+
+  // Toggle exclusion (location for trigger account)
+  const toggleExclusionMutation = useMutation({
+    mutationFn: async ({ accountId, locationId, exclude }: { accountId: string; locationId: string; exclude: boolean }) => {
+      if (exclude) {
+        const { error } = await supabase
+          .from('provincial_fee_account_exclusions')
+          .insert({ provincial_fee_account_id: accountId, location_id: locationId });
+        if (error && !String(error.message).includes('duplicate')) throw error;
+      } else {
+        const { error } = await supabase
+          .from('provincial_fee_account_exclusions')
+          .delete()
+          .eq('provincial_fee_account_id', accountId)
+          .eq('location_id', locationId);
+        if (error) throw error;
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['provincialFeeAccountExclusions'] });
     },
     onError: (error: any) => {
       toast({ title: 'Błąd', description: error.message, variant: 'destructive' });
@@ -384,28 +457,79 @@ const ProvincialFeeManagement = () => {
               <TableHeader>
                 <TableRow>
                   <TableHead>Prefix konta</TableHead>
+                  <TableHead className="w-40">Indywidualny % opłaty</TableHead>
+                  <TableHead className="w-48">Wykluczone lokalizacje</TableHead>
                   <TableHead className="w-20">Akcje</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {triggerPrefixes.map((tp: any) => (
-                  <TableRow key={tp.id}>
-                    <TableCell>
-                      <Badge variant="outline" className="font-mono">{tp.account_number_prefix}</Badge>
-                    </TableCell>
-                    <TableCell>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => removePrefixMutation.mutate(tp.id)}
-                        disabled={removePrefixMutation.isPending}
-                        className="text-destructive hover:text-destructive/80"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
+                {triggerPrefixes.map((tp: any) => {
+                  const exclCount = (exclusions || []).filter((e: any) => e.provincial_fee_account_id === tp.id).length;
+                  const editValue = percentEdits[tp.id];
+                  const currentValue = editValue !== undefined
+                    ? editValue
+                    : (tp.fee_percentage != null ? String(tp.fee_percentage) : '');
+                  return (
+                    <TableRow key={tp.id}>
+                      <TableCell>
+                        <Badge variant="outline" className="font-mono">{tp.account_number_prefix}</Badge>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <Input
+                            type="number"
+                            min="0"
+                            max="100"
+                            step="0.01"
+                            placeholder={`globalny: ${feePercentage || '0'}`}
+                            value={currentValue}
+                            onChange={(e) => setPercentEdits((prev) => ({ ...prev, [tp.id]: e.target.value }))}
+                            className="w-28 h-8"
+                          />
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            disabled={updatePercentMutation.isPending}
+                            onClick={() => {
+                              const raw = currentValue.trim();
+                              const val = raw === '' ? null : parseFloat(raw.replace(',', '.'));
+                              if (val !== null && (isNaN(val) || val < 0 || val > 100)) {
+                                toast({ title: 'Błąd', description: 'Procent musi być między 0 a 100', variant: 'destructive' });
+                                return;
+                              }
+                              updatePercentMutation.mutate({ id: tp.id, fee_percentage: val });
+                              setPercentEdits((prev) => { const c = { ...prev }; delete c[tp.id]; return c; });
+                            }}
+                          >
+                            Zapisz
+                          </Button>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setExclusionsForId(tp.id)}
+                          className="flex items-center gap-2"
+                        >
+                          <Building2 className="h-4 w-4" />
+                          {exclCount > 0 ? `${exclCount} wykluczonych` : 'Zarządzaj'}
+                        </Button>
+                      </TableCell>
+                      <TableCell>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => removePrefixMutation.mutate(tp.id)}
+                          disabled={removePrefixMutation.isPending}
+                          className="text-destructive hover:text-destructive/80"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
           ) : (
@@ -415,6 +539,48 @@ const ProvincialFeeManagement = () => {
           )}
         </CardContent>
       </Card>
+
+      {/* Exclusions dialog */}
+      <Dialog open={!!exclusionsForId} onOpenChange={(o) => !o && setExclusionsForId(null)}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Wykluczone lokalizacje</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            Zaznaczone lokalizacje nie będą miały automatycznie naliczanej opłaty prowincjalnej dla tego konta.
+          </p>
+          <div className="max-h-[400px] overflow-y-auto space-y-2 py-2">
+            {(locations || []).map((loc: any) => {
+              const isExcluded = (exclusions || []).some(
+                (e: any) => e.provincial_fee_account_id === exclusionsForId && e.location_id === loc.id
+              );
+              return (
+                <div key={loc.id} className="flex items-center gap-2">
+                  <Checkbox
+                    id={`excl-${loc.id}`}
+                    checked={isExcluded}
+                    onCheckedChange={(checked) => {
+                      if (!exclusionsForId) return;
+                      toggleExclusionMutation.mutate({
+                        accountId: exclusionsForId,
+                        locationId: loc.id,
+                        exclude: !!checked,
+                      });
+                    }}
+                  />
+                  <Label htmlFor={`excl-${loc.id}`} className="cursor-pointer font-normal">{loc.name}</Label>
+                </div>
+              );
+            })}
+            {(!locations || locations.length === 0) && (
+              <p className="text-sm text-muted-foreground">Brak lokalizacji.</p>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setExclusionsForId(null)}>Zamknij</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

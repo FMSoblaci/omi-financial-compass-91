@@ -395,7 +395,8 @@ const parseAmount = (amountStr: string): number => {
                 settlement_type: 'Bank',
                 location_id: user.location,
                 user_id: user.id,
-              }
+              },
+              user.location
             );
 
             if (withProvincialFees.length > 0) {
