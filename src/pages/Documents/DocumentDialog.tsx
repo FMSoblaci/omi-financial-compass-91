@@ -1469,8 +1469,8 @@ const DocumentDialog = ({ isOpen, onClose, onDocumentCreated, document, location
       }
 
       toast({
-        title: "Kwota wyrównana",
-        description: `Utworzono operację wyrównującą: ${balanceAmount.toFixed(2)} ${form.getValues("currency")}`,
+        title: "Kwota rozdzielona",
+        description: `Utworzono operację z kwotą: ${filledAmount.toFixed(2)} ${form.getValues("currency")}`,
       });
     } else {
       // Normal split: both fields have values
