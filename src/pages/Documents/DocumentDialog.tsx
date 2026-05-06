@@ -130,6 +130,8 @@ const DocumentDialog = ({ isOpen, onClose, onDocumentCreated, document, location
     enabled: !!user?.id,
   });
 
+  const effectiveLocationId = locationIdOverride || document?.location_id || userProfile?.location_id || null;
+
   const { data: locationSettings } = useQuery({
     queryKey: ["locationSettings", userProfile?.location_id],
     queryFn: async () => {
