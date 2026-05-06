@@ -1153,7 +1153,6 @@ const DocumentDialog = ({ isOpen, onClose, onDocumentCreated, document, location
 
     // Check main transactions
     const mainPending = pendingFeeCheck.filter(p => p.type === 'main');
-  const effectiveLocationId = locationIdOverride || document?.location_id || userProfile?.location_id || null;
     if (mainPending.length > 0) {
       setTransactions((prev) => {
         const result: Transaction[] = [];
