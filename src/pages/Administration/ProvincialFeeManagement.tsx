@@ -177,11 +177,39 @@ const ProvincialFeeManagement = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('provincial_fee_accounts')
-        .select('id, account_number_prefix');
+        .select('id, account_number_prefix, fee_percentage');
       if (error) throw error;
       return data;
     },
   });
+
+  // Locations for exclusion dialog
+  const { data: locations } = useQuery({
+    queryKey: ['locations-for-fee-exclusions'],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('locations').select('id, name').order('name');
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  // Exclusions
+  const { data: exclusions } = useQuery({
+    queryKey: ['provincialFeeAccountExclusions'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('provincial_fee_account_exclusions')
+        .select('id, provincial_fee_account_id, location_id');
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  // Local state for inline % editing per row
+  const [percentEdits, setPercentEdits] = React.useState<Record<string, string>>({});
+
+  // Exclusions dialog state
+  const [exclusionsForId, setExclusionsForId] = React.useState<string | null>(null);
 
   // Local form state
   const [feePercentage, setFeePercentage] = React.useState<string>('');
